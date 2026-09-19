@@ -9,12 +9,29 @@ import SwiftUI
 import CoreBluetooth
 
 struct ContentView: View {
+    // Automatically use mock manager in simulator, real manager on device
+    #if targetEnvironment(simulator)
+    @State private var bluetoothManager = MockBluetoothManager()
+    #else
     @State private var bluetoothManager = BluetoothManager()
+    #endif
+    
     @State private var showDeviceList = false
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 30) {
+                // Simulator Badge
+                #if targetEnvironment(simulator)
+                Label("Simulator Mode", systemImage: "app.dashed")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.orange.opacity(0.2))
+                    .clipShape(Capsule())
+                #endif
+                
                 // Heart Rate Display
                 VStack(spacing: 10) {
                     Image(systemName: "heart.fill")
@@ -23,7 +40,7 @@ struct ContentView: View {
                         .symbolEffect(.pulse, value: bluetoothManager.heartRate)
                     
                     Text("\(bluetoothManager.heartRate)")
-                        .font(.system(size: 80, weight: .bold, design: .rounded))
+                        .font(.system(size: 120, weight: .bold, design: .rounded))
                         .contentTransition(.numericText())
                     
                     Text("BPM")
@@ -97,7 +114,11 @@ struct ContentView: View {
 }
 
 struct DeviceListView: View {
+    #if targetEnvironment(simulator)
+    var bluetoothManager: MockBluetoothManager
+    #else
     var bluetoothManager: BluetoothManager
+    #endif
     @Binding var isPresented: Bool
     
     var body: some View {
@@ -116,6 +137,9 @@ struct DeviceListView: View {
                             isPresented = false
                         }) {
                             HStack {
+                                Image(systemName: "heart.circle.fill")
+                                    .foregroundStyle(.red)
+
                                 VStack(alignment: .leading) {
                                     Text(device.name ?? "Unknown Device")
                                         .font(.headline)
@@ -156,6 +180,6 @@ struct DeviceListView: View {
     }
 }
 
-#Preview {
+#Preview("Simulator Mode") {
     ContentView()
 }

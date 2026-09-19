@@ -9,7 +9,7 @@ import Foundation
 import CoreBluetooth
 
 @Observable
-class BluetoothManager: NSObject {
+class BluetoothManager: NSObject, BluetoothManagerProtocol {
     // Bluetooth state
     var isScanning = false
     var isConnected = false

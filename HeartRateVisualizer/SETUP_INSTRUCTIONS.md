@@ -1,6 +1,24 @@
 # Bluetooth Setup Instructions
 
-## Required: Add Bluetooth Permissions
+## Testing in Simulator with Mock Device
+
+The app automatically detects if it's running in the iOS Simulator and uses a **mock Bluetooth manager** that simulates a real heart rate sensor. This means you can test the app without needing a physical device!
+
+### Mock Features:
+- ✅ Simulates 3 dummy heart rate devices (including "Cycplus H2")
+- ✅ Realistic heart rate simulation (60-100 BPM with natural variation)
+- ✅ Connection/disconnection simulation
+- ✅ Automatic detection (works in simulator automatically)
+
+### To Test in Simulator:
+1. Run the app in any iOS Simulator
+2. Tap "Scan for Devices"
+3. Select any of the mock devices (e.g., "Cycplus H2")
+4. Watch the heart rate update with realistic variations!
+
+---
+
+## Required: Add Bluetooth Permissions (For Real Device)
 
 You need to add the following entries to your app's Info.plist file:
 
@@ -39,6 +57,8 @@ If you prefer to edit the raw plist file, add these lines:
 
 ## Features Implemented
 
+✅ **Automatic Simulator Detection** - Uses mock devices in simulator, real Bluetooth on device
+✅ **Mock Heart Rate Simulation** - Realistic BPM simulation with natural variation
 ✅ Bluetooth LE scanning for heart rate devices
 ✅ Connection management (connect/disconnect)
 ✅ Real-time heart rate display with animated heart icon
