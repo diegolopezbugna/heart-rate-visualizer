@@ -84,24 +84,20 @@ class MockBluetoothManager: BluetoothManagerProtocol {
     }
     
     private func startHeartRateSimulation() {
-        // Start with a base heart rate around 70 BPM
-        heartRate = 70
+        // Start with a base heart rate around 100 BPM
+        heartRate = 120
         
         // Update heart rate every second with realistic variation
         heartRateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             
             // Simulate realistic heart rate variation
-            // Heart rate cycles between 65-90 BPM with some randomness
             let time = Date().timeIntervalSince1970
-            let cycle = sin(time / 10.0) * 10.0  // Slow cycle
+            let cycle = sin(time / 10.0) * 25.0  // Slow cycle
             let noise = Double.random(in: -3...3)  // Random variation
-            let baseRate = 75.0
+            let baseRate = 120.0
             
             self.heartRate = Int(baseRate + cycle + noise)
-            
-            // Keep it in realistic range
-            self.heartRate = max(60, min(100, self.heartRate))
         }
     }
     

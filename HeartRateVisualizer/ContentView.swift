@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AVFoundation
 import CoreBluetooth
 
 struct ContentView: View {
@@ -17,37 +18,60 @@ struct ContentView: View {
     #endif
     
     @State private var showDeviceList = false
+    @State private var showSettings = false
+    
+    // Heart rate settings and alerts
+    @State private var settings = HeartRateSettings()
+    @State private var alertManager = HeartRateAlertManager()
+    
+    private var useMock: Bool {
+        #if targetEnvironment(simulator)
+        return true
+        #else
+        return false
+        #endif
+    }
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 30) {
                 // Simulator Badge
-                #if targetEnvironment(simulator)
-                Label("Simulator Mode", systemImage: "app.dashed")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.orange.opacity(0.2))
-                    .clipShape(Capsule())
-                #endif
+                if useMock {
+                    Label("Simulator Mode", systemImage: "app.dashed")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.orange.opacity(0.2))
+                        .clipShape(Capsule())
+                }
                 
                 // Heart Rate Display
                 VStack(spacing: 10) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 80))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(heartRateColor)
                         .symbolEffect(.pulse, value: bluetoothManager.heartRate)
                     
                     Text("\(bluetoothManager.heartRate)")
-                        .font(.system(size: 120, weight: .bold, design: .rounded))
+                        .font(.system(size: 80, weight: .bold, design: .rounded))
                         .contentTransition(.numericText())
                     
                     Text("BPM")
                         .font(.title2)
                         .foregroundStyle(.secondary)
+                    
+                    // Zone indicator
+                    if settings.isConfigured && bluetoothManager.isConnected && bluetoothManager.heartRate > 0 {
+                        ZoneIndicatorView(
+                            heartRate: bluetoothManager.heartRate,
+                            settings: settings
+                        )
+                        .transition(.scale.combined(with: .opacity))
+                    }
                 }
                 .padding()
+                .animation(.easeInOut, value: bluetoothManager.heartRate)
                 
                 // Connection Status
                 VStack(spacing: 5) {
@@ -106,9 +130,144 @@ struct ContentView: View {
             }
             .padding()
             .navigationTitle("Heart Rate Monitor")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: {
+                        showSettings = true
+                    }) {
+                        Image(systemName: "gearshape")
+                    }
+                }
+            }
             .sheet(isPresented: $showDeviceList) {
                 DeviceListView(bluetoothManager: bluetoothManager, isPresented: $showDeviceList)
             }
+            .sheet(isPresented: $showSettings) {
+                SettingsView(settings: settings)
+            }
+            .onChange(of: bluetoothManager.heartRate) { oldValue, newValue in
+                // Check heart rate and play alerts if needed
+                alertManager.checkAndAlert(
+                    heartRate: newValue,
+                    settings: settings,
+                    isConnected: bluetoothManager.isConnected
+                )
+            }
+            .onChange(of: bluetoothManager.isConnected) { oldValue, newValue in
+                print("isConnected: \(newValue)")
+                UIApplication.shared.isIdleTimerDisabled = newValue
+            }
+        }
+    }
+    
+    // Computed property for heart rate color based on zone
+    private var heartRateColor: Color {
+        guard settings.isConfigured, bluetoothManager.isConnected, bluetoothManager.heartRate > 0 else {
+            return .red
+        }
+        
+        let zone = settings.checkHeartRate(bluetoothManager.heartRate)
+        switch zone {
+        case .belowTarget: return .blue
+        case .inTarget: return .green
+        case .aboveTarget: return .red
+        case .normal: return .gray
+        }
+    }
+}
+
+// MARK: - Zone Indicator View
+
+struct ZoneIndicatorView: View {
+    let heartRate: Int
+    let settings: HeartRateSettings
+    
+    var body: some View {
+        let zone = settings.checkHeartRate(heartRate)
+        let percentage = settings.getPercentageOfMax(for: heartRate)
+        
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: zone.icon)
+                    .foregroundStyle(zoneColor)
+                
+                Text(settings.getZoneDescription(for: heartRate))
+                    .font(.headline)
+                    .foregroundStyle(zoneColor)
+            }
+            
+            Text("\(percentage)% of max")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            // Visual bar indicator
+            ZStack(alignment: .leading) {
+                // Background
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(.gray.opacity(0.2))
+                    .frame(height: 8)
+                
+                // Target zone (70-80%)
+                GeometryReader { geometry in
+                    let width = geometry.size.width
+                    let targetStart = width * 0.7
+                    let targetWidth = width * 0.1
+                    
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(.green.opacity(0.3))
+                        .frame(width: targetWidth, height: 8)
+                        .offset(x: targetStart)
+                }
+                
+                // Current position
+                GeometryReader { geometry in
+                    let width = geometry.size.width
+                    let position = min(max(CGFloat(percentage) / 100.0, 0), 1.0) * width
+                    
+                    Circle()
+                        .fill(zoneColor)
+                        .frame(width: 16, height: 16)
+                        .offset(x: position - 8, y: -4)
+                }
+            }
+            .frame(height: 16)
+            .padding(.horizontal)
+            
+            HStack {
+                Text("0%")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Text("70%")
+                    .font(.caption2)
+                    .foregroundStyle(.green)
+                
+                Text("80%")
+                    .font(.caption2)
+                    .foregroundStyle(.green)
+                
+                Spacer()
+                
+                Text("100%")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+        }
+        .padding()
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var zoneColor: Color {
+        let zone = settings.checkHeartRate(heartRate)
+        switch zone {
+        case .belowTarget: return .blue
+        case .inTarget: return .green
+        case .aboveTarget: return .red
+        case .normal: return .gray
         }
     }
 }
@@ -137,9 +296,6 @@ struct DeviceListView: View {
                             isPresented = false
                         }) {
                             HStack {
-                                Image(systemName: "heart.circle.fill")
-                                    .foregroundStyle(.red)
-
                                 VStack(alignment: .leading) {
                                     Text(device.name ?? "Unknown Device")
                                         .font(.headline)
