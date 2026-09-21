@@ -11,7 +11,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var settings: HeartRateSettings
     
-    @State private var ageInput: String = ""
+    @State private var age: Int?
     @State private var showValidation = false
     
     var body: some View {
@@ -25,7 +25,7 @@ struct SettingsView: View {
                         
                         Spacer()
                         
-                        TextField("Enter age", text: $ageInput)
+                        TextField("Enter age", value: $age, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
@@ -134,22 +134,20 @@ struct SettingsView: View {
                 }
             }
             .onAppear {
-                if let age = settings.age {
-                    ageInput = "\(age)"
-                }
+                age = settings.age
             }
         }
     }
-    
+
     private var isValidAge: Bool {
-        guard let age = Int(ageInput) else { return false }
+        guard let age else { return false }
         return age >= 10 && age <= 100
     }
-    
+
     private func saveSettings() {
         showValidation = true
-        
-        guard isValidAge, let age = Int(ageInput) else {
+
+        guard isValidAge, let age else {
             return
         }
         
